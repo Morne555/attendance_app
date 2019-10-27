@@ -2,6 +2,7 @@ package com.itsp.attendance;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -16,9 +17,12 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
@@ -29,6 +33,7 @@ import com.google.firebase.iid.InstanceIdResult;
 import com.hadiidbouk.appauthwebview.AppAuthWebView;
 import com.hadiidbouk.appauthwebview.AppAuthWebViewData;
 import com.hadiidbouk.appauthwebview.IAppAuthWebViewListener;
+import com.itsp.attendance.barcodereader.BarcodeCaptureActivity;
 import com.itsp.attendance.ui.Data;
 import com.itsp.attendance.ui.FragmentViewModel;
 import com.itsp.attendance.ui.home.Subject;
@@ -54,17 +59,21 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements IAppAuthWebViewListener
 {
     static String TAG = MainActivity.class.getSimpleName();
+    private static final int RC_BARCODE_CAPTURE = 9001;
     private AppAuthWebViewData authWebData;
     AppAuthWebView appAuthWebView;
     private FrameLayout mErrorLayout;
     private FrameLayout mLoadingLayout;
     private WebView mWebView;
+    private FloatingActionButton qrReaderButton;
+    Barcode barcode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -72,7 +81,6 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
         Config.url = Utility.loadRawResourceKey(this, R.raw.config, "url");
 
         FragmentViewModel.data = new MutableLiveData<>();
-
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         // TODO(Morne): Set document path as user id, maybe user id should be student number?
@@ -180,6 +188,7 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.web_login);
 
+        //NOTE(Morne): Auth setup
         authWebData = new AppAuthWebViewData();
         authWebData.setClientId("ITSP300_ANDROID_APP");
         authWebData.setClientSecret("");
@@ -206,7 +215,6 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
 
         // TODO(Morne): Wrap to ensure view is set correctly
         appAuthWebView.performLoginRequest();
-
     }
 
     @Override
@@ -231,6 +239,98 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data)
+    {
+        // Barcode result
+        if (requestCode == RC_BARCODE_CAPTURE)
+        {
+            if (resultCode == CommonStatusCodes.SUCCESS)
+            {
+                if (data != null)
+                {
+                    barcode = data.getParcelableExtra(BarcodeCaptureActivity.BarcodeObject);
+                    if (barcode != null)
+                    {
+                        Toast.makeText(this, barcode.displayValue, Toast.LENGTH_SHORT).show();
+                        Log.d(TAG, "Barcode read: " + barcode.displayValue);
+/*
+                        Map<String, String> postParam = new HashMap<String, String>();
+                        postParam.put("qrCode", barcode.displayValue);
+
+                        String api_path = "/api/secure/scan_code";
+                        JsonObjectRequest qrObjectRequest = new JsonObjectRequest(Request.Method.POST,
+                                Config.url + api_path, new JSONObject(postParam),
+                                new Response.Listener<JSONObject>()
+                                {
+                                    @Override
+                                    public void onResponse(JSONObject response)
+                                    {
+                                        // TODO(Morne): Response should not echo the value sent
+                                        Log.d(TAG, "onResponse: " + response.toString());
+                                    }
+                                }, new Response.ErrorListener()
+                        {
+
+                            @Override
+                            public void onErrorResponse(VolleyError error)
+                            {
+                                NetworkResponse networkResponse = error.networkResponse;
+                                if (networkResponse != null)
+                                {
+                                    String data = new String(networkResponse.data);
+                                    Log.e(TAG, "onErrorResponse:\nbody:\n" + data);
+
+                                    if (networkResponse.statusCode == 100 || networkResponse.statusCode == 401)
+                                    {
+                                        login();
+                                    }
+                                    else
+                                    {
+                                        Toast.makeText(MainActivity.this, "Network error!", Toast.LENGTH_SHORT).show();
+                                    }
+                                }
+                                else
+                                {
+                                    Toast.makeText(MainActivity.this, "Network error!\nNo response received!", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        })
+                        {
+                            @Override
+                            public Map<String, String> getHeaders() throws AuthFailureError
+                            {
+                                HashMap<String, String> headers = new HashMap<String, String>();
+                                headers.put("Authorization", "Bearer " + Config.accessToken);
+                                headers.put("Content-Type", "application/json; charset=utf-8");
+                                return headers;
+                            }
+                        };
+
+                        VolleySingleton.getInstance(this).addToRequestQueue(qrObjectRequest);
+*/
+                    }
+                    else
+                    {
+                        Log.d(TAG, "Barcode was null.");
+                    }
+                }
+                else
+                {
+                    Log.d(TAG, "No barcode captured, intent data is null.");
+                }
+            }
+            else
+            {
+                Log.d(TAG, "onActivityResult: " + CommonStatusCodes.getStatusCodeString(resultCode));
+            }
+        }
+        else
+        {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    @Override
     public void onUserAuthorize(AuthState authState)
     {
         Log.d(TAG, "onUserAuthorize: " + authState.getAccessToken());
@@ -243,6 +343,21 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(navView, navController);
+
+        qrReaderButton = findViewById(R.id.main_floating_scan);
+        qrReaderButton.setOnClickListener(new View.OnClickListener()
+        {
+            public void onClick(View v)
+            {
+                Intent intent = new Intent(MainActivity.this, BarcodeCaptureActivity.class);
+
+                // TODO(Morne): Decide whether the auto focus and flash should be used for QR scanning
+                intent.putExtra(BarcodeCaptureActivity.AutoFocus, true);
+                intent.putExtra(BarcodeCaptureActivity.UseFlash, false);
+
+                startActivityForResult(intent, RC_BARCODE_CAPTURE);
+            }
+        });
     }
 
     @Override
