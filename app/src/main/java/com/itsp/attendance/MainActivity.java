@@ -100,19 +100,18 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
 
                 if(snapshot != null && snapshot.exists())
                 {
-
                     // NOTE(Morne): Get firebase data
                     Map<String, Object> firebaseData = snapshot.getData();
                     Log.d(TAG, "Current data: " + firebaseData);
                     Data data = new Data();
 
-                    // NOTE(Morne): Retrieve dashboard screen data
+                    // NOTE(Morne): Process dashboard screen data
                     data.studentNumber = (String) firebaseData.get("studentNumber");
                     data.studentName = (String) firebaseData.get("studentName");
                     data.attendedTotal = (int) (long) firebaseData.get("attendedTotal");
                     data.classTotal = (int) (long) firebaseData.get("classTotal");
 
-                    // NOTE(Morne): Retrieve home screen data
+                    // NOTE(Morne): Process home screen data
                     try
                     {
                         JSONArray subjectsJSON = new JSONArray(firebaseData.get("subjectList").toString());
@@ -138,6 +137,7 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
                         ex.printStackTrace();
                     }
 
+                    // NOTE(Morne): Update fragment information
                     FragmentViewModel.updateData(data);
                 }
                 else
@@ -147,6 +147,7 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
             }
         });
 
+        // NOTE(Morne): Compatible code for notifications channel
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
         {
             // Create channel to show notifications.
