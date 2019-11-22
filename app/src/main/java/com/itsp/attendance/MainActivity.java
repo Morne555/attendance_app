@@ -23,6 +23,9 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
@@ -72,6 +75,7 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
     private FrameLayout mErrorLayout;
     private FrameLayout mLoadingLayout;
     private WebView mWebView;
+    private FirebaseAuth firebaseAuth;
     private FloatingActionButton qrReaderButton;
     Barcode barcode;
 
@@ -189,6 +193,8 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
         super.onCreate(savedInstanceState);
         setContentView(R.layout.web_login);
 
+        firebaseAuth = FirebaseAuth.getInstance();
+
         //NOTE(Morne): Auth setup
         authWebData = new AppAuthWebViewData();
         authWebData.setClientId("ITSP300_ANDROID_APP");
@@ -216,6 +222,9 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
 
         // TODO(Morne): Wrap to ensure view is set correctly
         appAuthWebView.performLoginRequest();
+
+
+
     }
 
     @Override
@@ -335,6 +344,21 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
     public void onUserAuthorize(AuthState authState)
     {
         Log.d(TAG, "onUserAuthorize: " + authState.getAccessToken());
+        firebaseAuth.signInWithCustomToken(authState.getAccessToken())
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.d(TAG, "signInWithCustomToken:success");
+                            FirebaseUser user = firebaseAuth.getCurrentUser();
+
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Log.w(TAG, "signInWithCustomToken:failure", task.getException());
+                        }
+                    }
+                });
 
         setContentView(R.layout.activity_main);
         BottomNavigationView navView = findViewById(R.id.nav_view);
@@ -344,6 +368,7 @@ public class MainActivity extends AppCompatActivity implements IAppAuthWebViewLi
         NavController navController = Navigation.findNavController(this, R.id.nav_host_fragment);
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(navView, navController);
+
 
         qrReaderButton = findViewById(R.id.main_floating_scan);
         qrReaderButton.setOnClickListener(new View.OnClickListener()
